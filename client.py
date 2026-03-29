@@ -1,7 +1,9 @@
 """
+
 CMPT 371 A3: Multiplayer Tic-Tac-Toe Client
 Architecture: JSON over TCP Protocol
 Reference: ChatGPT used to help generate clean ASCII art for the board.
+
 """
 
 import socket
@@ -17,18 +19,18 @@ def print_board(board):
     Displays the board with coordinates and clean Unicode box-drawing characters.
     """
     # Column headers
-    print("\n    0   1   2 ")
-    print("  ┌───┬───┬───┐")
+    print("\n    0   1   2   3   4   5   6")
+    print("  ┌───┬───┬───┬───┬───┬───┬───┐")
     
     for i, row in enumerate(board):
         # Row data with the row index on the left
-        print(f"{i} │ {row[0]} │ {row[1]} │ {row[2]} │")
+        print(f"{i} │ {row[0]} │ {row[1]} │ {row[2]} │ {row[3]} │ {row[4]} │ {row[5]} │ {row[6]} │")
         
         # Row separators or the bottom border
-        if i < 2:
-            print("  ├───┼───┼───┤")
+        if i < 5:
+            print("  ├───┼───┼───┼───┼───┼───┼───┤")
         else:
-            print("  └───┴───┴───┘\n")
+            print("  └───┴───┴───┴───┴───┴───┴───┘\n")
 
 def start_client():
     """
@@ -77,11 +79,11 @@ def start_client():
                 if msg["turn"] == my_role:
                     print("It's your turn!")
                     # State Validation: Prompt for input only if the server says it is our turn
-                    r_str, c_str = input("Enter row and col (e.g., '1 1'): ").split()
+                    c_str = input("Enter col (e.g., '1'): ")
                     
-                    # Protocol: Package coordinates into a MOVE packet.
+                    # Protocol: Package input into a MOVE packet.
                     # Always append the \n boundary before encoding to bytes.
-                    move_msg = json.dumps({"type": "MOVE", "row": int(r_str), "col": int(c_str)}) + '\n'
+                    move_msg = json.dumps({"type": "MOVE", "col": int(c_str)}) + '\n'
                     client.sendall(move_msg.encode('utf-8'))
                 else:
                     print("Waiting for opponent...")

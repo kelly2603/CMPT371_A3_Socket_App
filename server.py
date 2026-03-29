@@ -22,14 +22,120 @@ def check_winner(board):
     Enforces the "Single Source of Truth" rule: the server calculates wins 
     so clients cannot cheat by modifying their local memory.
     """
-    # Check rows and columns for a match
-    for i in range(3):
-        if board[i][0] == board[i][1] == board[i][2] != ' ': return board[i][0]
-        if board[0][i] == board[1][i] == board[2][i] != ' ': return board[0][i]
+    # Check Rows
+    for i in range(6):
+        # i = row, j = col
+        # for each row, add to count and check if any player won
+        xcount = 0
+        ocount = 0
+        for j in range(7):
+            if board[i][j] == ' ':
+                xcount = 0
+                ocount = 0
+                continue
+            if board[i][j] == 'X':
+                xcount += 1
+                ocount = 0
+            else:
+                ocount += 1
+                xcount = 0
+
+            if xcount >= 4: return 'X'
+            elif ocount >= 4: return 'O'
+
+    # Check Columns
+    xcount = 0
+    ocount = 0
+    for j in range(7):
+        # i = row, j = col
+        # for each col, add to count and check if any player won
+        xcount = 0
+        ocount = 0
+        for i in range(6):
+            if board[i][j] == ' ':
+                xcount = 0
+                ocount = 0
+                continue
+            if board[i][j] == 'X':
+                xcount += 1
+                ocount = 0
+            else:
+                ocount += 1
+                xcount = 0
+
+            if xcount >= 4: return 'X'
+            elif ocount >= 4: return 'O'
 
     # Check diagonals
-    if board[0][0] == board[1][1] == board[2][2] != ' ': return board[0][0]
-    if board[0][2] == board[1][1] == board[2][0] != ' ': return board[0][2]
+
+    # # check 4-len diags
+    # if board[3][0] == board[2][1] == board[1][2] == board[0][3] != ' ': return board[3][0]
+    # if board[5][3] == board[4][4] == board[3][5] == board[2][6] != ' ': return board[5][3]
+    # if board[2][0] == board[3][1] == board[4][2] == board[5][3] != ' ': return board[2][0]
+    # if board[0][3] == board[1][4] == board[2][5] == board[3][6] != ' ': return board[0][3]
+
+    # # check 5-len diags
+    # xcount = 0
+    # ocount = 0
+    # # i = row, j = col
+    # colList = [[0,1,2,3,4],[2,3,4,5,6],[0,1,2,3,4],[2,3,4,5,6]]
+    # rowList = [[1,2,3,4,5],[0,1,2,3,4],[5,4,3,2,1],[4,3,2,1,0]]
+    # for idx in range(4):
+    #     col = colList[idx]
+    #     row = rowList[idx]
+    #     for j in col:
+    #         for i in row:
+    #             if board[i][j] == ' ':
+    #                 continue
+    #             if board[i][j] == 'X':
+    #                 xcount += 1
+    #                 ocount = 0
+    #             else:
+    #                 ocount += 1
+    #                 xcount = 0
+
+    #             if xcount >= 4: return 'X'
+    #             elif ocount >= 4: return 'O'
+
+    #  # check 5-len diags
+    # xcount = 0
+    # ocount = 0
+    # # i = row, j = col
+    # colList = [0,1,2,3,4,5,6]
+    # rowList = [0,1,2,3,4,5]
+    # for x in range(3):
+    #     for i in rowList:
+    #         for j in colList:
+    #             if board[i][j] == ' ':
+    #                 continue
+    #             if board[i][j] == 'X':
+    #                 xcount += 1
+    #                 ocount = 0
+    #             else:
+    #                 ocount += 1
+    #                 xcount = 0
+
+    #             if xcount >= 4: return 'X'
+    #             elif ocount >= 4: return 'O'
+        
+    DRstartPos = [(0,0),(0,1),(0,2),(0,3),
+                  (1,0),(1,1),(1,2),(1,3),
+                  (2,0),(2,1),(2,2),(2,3)
+                 ]
+    
+    URstartPos = [(3,0),(3,1),(3,2),(3,3),
+                  (4,0),(4,1),(4,2),(4,3),
+                  (5,0),(5,1),(5,2),(5,3)
+                 ]
+    
+    for pos in DRstartPos:
+        i, j = pos
+        if board[i][j] == board[i+1][j+1] == board[i+2][j+2] == board[i+3][j+3] != ' ': return board[i][j]
+
+    for pos in URstartPos:
+        i, j = pos
+        if board[i][j] == board[i-1][j+1] == board[i-2][j+2] == board[i-3][j+3] != ' ': return board[i][j]
+
 
     # Check for a draw (no empty spaces left)
     if all(cell != ' ' for row in board for cell in row): return 'Draw'
@@ -46,7 +152,14 @@ def game_session(conn_x, conn_o):
     conn_o.sendall((json.dumps({"type": "WELCOME", "payload": "Player O"}) + '\n').encode('utf-8'))
     
     # Initialize the authoritative game state
-    board = [[' ', ' ', ' '], [' ', ' ', ' '], [' ', ' ', ' ']]
+    board = [
+        [' ', ' ', ' ', ' ', ' ', ' ', ' '], 
+        [' ', ' ', ' ', ' ', ' ', ' ', ' '], 
+        [' ', ' ', ' ', ' ', ' ', ' ', ' '], 
+        [' ', ' ', ' ', ' ', ' ', ' ', ' '], 
+        [' ', ' ', ' ', ' ', ' ', ' ', ' '], 
+        [' ', ' ', ' ', ' ', ' ', ' ', ' ']
+        ]
     turn = 'X'
     
     # Broadcast initial empty board to both players
@@ -61,6 +174,8 @@ def game_session(conn_x, conn_o):
         active_socket = sockets[turn]
         # Block and wait for the active player to send their move
         data = active_socket.recv(1024).decode('utf-8')
+        if not data:
+            break
         
         # If multiple messages arrive buffered together in the TCP stream, 
         # we only process the first valid one using the \n boundary.
@@ -69,7 +184,16 @@ def game_session(conn_x, conn_o):
         
         # Protocol: Process the "MOVE" action
         if msg["type"] == "MOVE":
-            r, c = msg["row"], msg["col"]
+            c = msg["col"]
+            
+            # Compute row number
+            for i in range(5,-1,-1):
+                if board[i][c] == ' ':
+                    r = i
+                    break
+            if r is None:
+                continue
+
             # Update authoritative state
             board[r][c] = turn  
             
@@ -95,6 +219,7 @@ def game_session(conn_x, conn_o):
     conn_x.close()
     conn_o.close()
 
+# =================== DONT NEED TO UPDATE ======================
 def start_server():
     """
     Main server event loop. Binds the socket and populates the matchmaking queue.
