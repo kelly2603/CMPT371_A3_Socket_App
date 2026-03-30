@@ -94,8 +94,10 @@ venv\Scripts\activate
 ### 3 — Install dependencies
 
 ```bash
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
+
+> **Note (Windows):** Use `python -m pip` instead of `pip` directly. On some Windows setups, `pip` installs packages into the system Python even when a venv is active, which causes `ModuleNotFoundError` when you run the game.
 
 ### 4 — Launch the game
 
