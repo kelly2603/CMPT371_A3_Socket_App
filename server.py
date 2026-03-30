@@ -186,7 +186,9 @@ def game_session(conn_x, conn_o):
         if msg["type"] == "MOVE":
             c = msg["col"]
             
-            # Compute row number
+            # Compute the lowest empty row in the chosen column.
+            # r is initialized to None so we can safely detect a full column.
+            r = None
             for i in range(5,-1,-1):
                 if board[i][c] == ' ':
                     r = i
@@ -201,7 +203,11 @@ def game_session(conn_x, conn_o):
             winner = check_winner(board)
             status = "ongoing"
             if winner:
-                status = "Draw!" if winner == 'Draw' else f"Player {winner} wins!"
+                if winner == 'Draw':
+                    status = "Draw!"
+                else:
+                    colour = "Red" if winner == 'X' else "Yellow"
+                    status = f"Player {colour} wins!"
             else:
                 # Swap turns if the game is still ongoing
                 turn = 'O' if turn == 'X' else 'X'
@@ -210,7 +216,18 @@ def game_session(conn_x, conn_o):
             update_msg = json.dumps({"type": "UPDATE", "board": board, "turn": turn, "status": status}) + '\n'
             conn_x.sendall(update_msg.encode('utf-8'))
             conn_o.sendall(update_msg.encode('utf-8'))
-            
+
+            # Safety net: drain any extra buffered messages from the player who
+            # just moved so that queued clicks cannot auto-play in a future turn.
+            just_moved = sockets['O' if turn == 'X' else 'X']  # the player whose turn just ended
+            just_moved.setblocking(False)
+            try:
+                while just_moved.recv(4096):
+                    pass
+            except:
+                pass
+            just_moved.setblocking(True)
+
             # Terminate the loop if the game has concluded
             if winner:
                 break
@@ -226,6 +243,9 @@ def start_server():
     """
     # Initialize an IPv4 (AF_INET) TCP (SOCK_STREAM) socket
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # Allow immediate reuse of the port after the previous server process is killed.
+    # Without this, re-launching within ~60s causes "Address already in use".
+    server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server.bind((HOST, PORT))
     server.listen()
     print(f"[STARTING] Server is listening on {HOST}:{PORT}")
