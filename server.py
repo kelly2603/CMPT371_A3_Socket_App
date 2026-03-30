@@ -68,36 +68,6 @@ def check_winner(board):
 
     # Check diagonals
 
-    # # check 4-len diags
-    # if board[3][0] == board[2][1] == board[1][2] == board[0][3] != ' ': return board[3][0]
-    # if board[5][3] == board[4][4] == board[3][5] == board[2][6] != ' ': return board[5][3]
-    # if board[2][0] == board[3][1] == board[4][2] == board[5][3] != ' ': return board[2][0]
-    # if board[0][3] == board[1][4] == board[2][5] == board[3][6] != ' ': return board[0][3]
-
-    # # check 5-len diags
-    # xcount = 0
-    # ocount = 0
-    # # i = row, j = col
-    # colList = [[0,1,2,3,4],[2,3,4,5,6],[0,1,2,3,4],[2,3,4,5,6]]
-    # rowList = [[1,2,3,4,5],[0,1,2,3,4],[5,4,3,2,1],[4,3,2,1,0]]
-    # for idx in range(4):
-    #     col = colList[idx]
-    #     row = rowList[idx]
-    #     for j in col:
-    #         for i in row:
-    #             if board[i][j] == ' ':
-    #                 continue
-    #             if board[i][j] == 'X':
-    #                 xcount += 1
-    #                 ocount = 0
-    #             else:
-    #                 ocount += 1
-    #                 xcount = 0
-
-    #             if xcount >= 4: return 'X'
-    #             elif ocount >= 4: return 'O'
-
-    #  # check 5-len diags
     # xcount = 0
     # ocount = 0
     # # i = row, j = col
