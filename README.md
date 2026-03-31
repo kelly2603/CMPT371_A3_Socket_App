@@ -49,11 +49,13 @@ A real-time, two-player Connect-Four game built entirely on Python's **TCP Socke
 
 | File | Role |
 |---|---|
-| `server.py` | Authoritative game server — matchmaking, board logic, win detection |
+| `server.py` | Authoritative game server — matchmaking, board logic, win detection, timestamped protocol logging |
 | `gui_client.py` | Pygame GUI client with drop animations, glow effects, and HUD |
 | `client.py` | Terminal fallback client (CLI, no GUI required) |
-| `launcher.py` | One-click launcher — spawns server + 2 clients automatically |
-| `requirements.txt` | Python dependency list |
+| `launcher.py` | One-click launcher — spawns server + 2 clients; streams live server logs into the launcher window |
+| `test_server.py` | Unit tests for `check_winner` (30 cases across all win directions and draw) |
+| `test_integration.py` | Integration tests — connects real mock clients to a live server (18 protocol tests) |
+| `requirements.txt` | Python runtime dependencies |
 
 ---
 
@@ -107,7 +109,7 @@ python -m pip install -r requirements.txt
 python launcher.py
 ```
 
-A small window appears with two buttons:
+A window appears with the launcher controls and a live **SERVER LOG** panel at the bottom that streams all server activity in real time (connections, matchmaking, moves, and game results).
 
 - **Launch Game** — starts the server and opens two game windows side by side.
 - **Re-Launch** — kills any running processes and starts a fresh game.
@@ -151,6 +153,30 @@ python client.py
 2. Click any **column** on the board to drop your disc.
 3. First player to get **four discs in a row** (horizontal, vertical, or diagonal) wins.
 4. If the board fills up with no winner, the game ends in a **Draw**.
+
+---
+
+## Testing
+
+Install `pytest` first (not in `requirements.txt` since it's a dev dependency):
+
+```bash
+python -m pip install pytest
+```
+
+**Unit tests** — validates all `check_winner` logic without a running server:
+
+```bash
+python -m pytest test_server.py -v
+```
+
+**Integration tests** — spins up a real server and simulates two TCP clients end-to-end:
+
+```bash
+python -m pytest test_integration.py -v
+```
+
+Both suites also run automatically on every push and pull request to `main` via **GitHub Actions** (see `.github/workflows/tests.yml`).
 
 ---
 
