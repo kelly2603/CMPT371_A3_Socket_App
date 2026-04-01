@@ -65,7 +65,7 @@ def draw_glowing_circle(surface, color, glow_color, center, radius, glow_radius)
         pygame.draw.circle(glow_surf, (*glow_color, alpha), (glow_radius, glow_radius), r)
     surface.blit(glow_surf, (center[0] - glow_radius, center[1] - glow_radius))
     pygame.draw.circle(surface, color, center, radius)
-    # Bright specular highlight
+    # small bright dot to make it look like a disc
     highlight_pos = (center[0] - radius // 4, center[1] - radius // 4)
     highlight_r = radius // 4
     pygame.draw.circle(surface, lerp_color(color, (255, 255, 255), 0.55), highlight_pos, highlight_r)
@@ -116,7 +116,7 @@ class PremiumClient:
         self.win_pulse = 0.0     # used for the pulsing win effect
         self._move_pending = False  # True while waiting for server to ack our move
 
-        # Pre-bake the static gradient background surface
+        # draw the background once and reuse it
         self._bg = pygame.Surface((WIN_W, WIN_H))
         draw_gradient_rect(self._bg, BG_TOP, BG_BOT, (0, 0, WIN_W, WIN_H))
 
@@ -193,7 +193,7 @@ class PremiumClient:
                 self.status_msg   = status_raw
                 self.is_error     = False
 
-                # PLay sound
+                # play sound
                 if not self._endgame_sound_played:
                     if "won" in self.status_msg: 
                         self.win_sound.play()

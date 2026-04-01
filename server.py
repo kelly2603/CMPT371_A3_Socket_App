@@ -90,13 +90,13 @@ def run_game(sock_red, addr_red, sock_yel, addr_yel):
     red_str = f"{addr_red[0]}:{addr_red[1]}"
     yel_str = f"{addr_yel[0]}:{addr_yel[1]}"
 
-    print(f"[{ts()}] [SESSION] Game session started — Player X: {red_str}  |  Player O: {yel_str}", flush=True)
+    print(f"[{ts()}] new game: Red = {red_str}  | Yellow = {yel_str}", flush=True)
 
     # send each player their role
     sock_red.sendall((json.dumps({"type": "WELCOME", "payload": "Player X"}) + '\n').encode('utf-8'))
-    print(f"[{ts()}] [PROTOCOL] WELCOME -> Player X ({red_str})", flush=True)
+    print(f"[{ts()}] WELCOME -> Player X ({red_str})", flush=True)
     sock_yel.sendall((json.dumps({"type": "WELCOME", "payload": "Player O"}) + '\n').encode('utf-8'))
-    print(f"[{ts()}] [PROTOCOL] WELCOME -> Player O ({yel_str})", flush=True)
+    print(f"[{ts()}] WELCOME -> Player O ({yel_str})", flush=True)
 
     # set up the board and send the initial state
     board = [[' '] * 7 for _ in range(6)]
@@ -105,7 +105,7 @@ def run_game(sock_red, addr_red, sock_yel, addr_yel):
     update_msg = json.dumps({"type": "UPDATE", "board": board, "turn": turn, "status": "ongoing"}) + '\n'
     sock_red.sendall(update_msg.encode('utf-8'))
     sock_yel.sendall(update_msg.encode('utf-8'))
-    print(f"[{ts()}] [PROTOCOL] initial UPDATE sent, turn=X", flush=True)
+    print(f"[{ts()}] initial UPDATE sent, turn=X", flush=True)
 
     conns = {'X': sock_red, 'O': sock_yel}
     addr_map = {'X': red_str, 'O': yel_str}
@@ -132,10 +132,10 @@ def run_game(sock_red, addr_red, sock_yel, addr_yel):
                     break
 
             if r is None:
-                print(f"[{ts()}] [LOGIC] Column {c} is full — move from Player {turn} rejected", flush=True)
+                print(f"[{ts()}] Column {c} is full, ignoring move from Player {turn} rejected", flush=True)
                 continue
 
-            print(f"[{ts()}] [RECV] MOVE from Player {turn} ({addr_map[turn]}): col={c}", flush=True)
+            print(f"[{ts()}] MOVE from Player {turn} ({addr_map[turn]}): col={c}", flush=True)
 
             board[r][c] = turn
             winner = check_winner(board)
@@ -156,23 +156,23 @@ def run_game(sock_red, addr_red, sock_yel, addr_yel):
                         status_x = "You lost! Better luck next time."
                         stat = "Player O won"
                     
-                print(f"[{ts()}] [LOGIC] Placed {turn} at (row={r}, col={c}) — result: {stat}", flush=True)
+                print(f"[{ts()}] Placed {turn} at ({r},{c}) result: {stat}", flush=True)
             else:
-                print(f"[{ts()}] [LOGIC] Placed {turn} at (row={r}, col={c}) — win check: ongoing", flush=True)
+                print(f"[{ts()}] Placed {turn} at ({r},{c}) no winner yet", flush=True)
                 turn = 'O' if turn == 'X' else 'X'
 
-            # Broadcast updated state to both clients
+            # send updated board to both players
             update_msg_x = json.dumps({"type": "UPDATE", "board": board, "turn": turn, "status": status_x}) + '\n'
             update_msg_o = json.dumps({"type": "UPDATE", "board": board, "turn": turn, "status": status_o}) + '\n'
             sock_red.sendall(update_msg_x.encode('utf-8'))
             sock_yel.sendall(update_msg_o.encode('utf-8'))
 
             if winner:
-                print(f"[{ts()}] [PROTOCOL] Final UPDATE broadcast — status={stat}", flush=True)
+                print(f"[{ts()}] game over, sent final state: {stat}", flush=True)
             else:
-                print(f"[{ts()}] [PROTOCOL] UPDATE broadcast — turn={turn}, status=ongoing", flush=True)
+                print(f"[{ts()}] sent UPDATE, turn={turn}", flush=True)
 
-            # Safety net: drain any extra buffered messages from the player who just moved
+            # flush any extra data from the socket that just moved to avoid it interfering next turn
             just_moved = conns['O' if turn == 'X' else 'X']
             just_moved.setblocking(False)
             try:
@@ -185,7 +185,7 @@ def run_game(sock_red, addr_red, sock_yel, addr_yel):
             if winner:
                 break
 
-    print(f"[{ts()}] [SESSION] Session terminated — sockets closed", flush=True)
+    print(f"[{ts()}] game ended, closing sockets", flush=True)
     sock_red.close()
     sock_yel.close()
 
@@ -195,26 +195,26 @@ def start_server():
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server.bind((HOST, PORT))
     server.listen()
-    print(f"[{ts()}] [TCP] Server bound to {HOST}:{PORT} — listening for connections", flush=True)
+    print(f"[{ts()}] listening on {HOST}:{PORT}", flush=True)
 
     try:
         while True:
             conn, addr = server.accept()
-            print(f"[{ts()}] [TCP] Accepted connection from {addr[0]}:{addr[1]}", flush=True)
+            print(f"[{ts()}] Accepted connection from {addr[0]}:{addr[1]}", flush=True)
             data = conn.recv(1024).decode('utf-8')
 
             if "CONNECT" in data:
                 lobby.append((conn, addr))
-                print(f"[{ts()}] [HANDSHAKE] CONNECT received from {addr[0]}:{addr[1]} — queue size: {len(lobby)}", flush=True)
+                print(f"[{ts()}] player connected, lobby size: {len(lobby)}", flush=True)
 
                 if len(lobby) >= 2:
                     red_sock, addr_red = lobby.pop(0)
                     yel_sock, addr_yel = lobby.pop(0)
-                    print(f"[{ts()}] [MATCH] 2 players queued — spawning GameSession thread", flush=True)
+                    print(f"[{ts()}] matched 2 players, starting game thread", flush=True)
                     threading.Thread(target=run_game, args=(red_sock, addr_red, yel_sock, addr_yel)).start()
 
     except KeyboardInterrupt:
-        print(f"[{ts()}] [SHUTDOWN] Server closing...", flush=True)
+        print(f"[{ts()}] Server closing...", flush=True)
     finally:
         server.close()
 
