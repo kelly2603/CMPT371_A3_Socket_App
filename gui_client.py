@@ -45,7 +45,10 @@ YLW_BASE     = (240, 195,  0)
 YLW_GLOW     = (255, 230, 100)
 WHITE        = (245, 245, 255)
 GREY         = (130, 140, 170)
-GREEN        = (60,  210, 130)
+GREEN_TEXT   = (60,  210, 130)
+YELLOW_TEXT  = (255, 215, 0)
+RED_TEXT     = (255, 120, 120)
+BLUE_TEXT    = (120, 140, 255)
 SHADOW       = (0,   0,   0, 80)
 
 
@@ -104,9 +107,9 @@ class PremiumClient:
         self.clock  = pygame.time.Clock()
 
         # Fonts
-        self.font_title  = pygame.font.SysFont("Helvetica", 22, bold=True)
-        self.font_status = pygame.font.SysFont("Helvetica", 16)
-        self.font_big    = pygame.font.SysFont("Helvetica", 32, bold=True)
+        self.font_title  = pygame.font.Font("fonts/Montserrat-SemiBold.ttf", 22)
+        self.font_status = pygame.font.Font("fonts/Montserrat-SemiBold.ttf", 18)
+        self.font_big    = pygame.font.Font("fonts/Montserrat-SemiBold.ttf", 32)
 
         # Game state (set by server messages)
         self.board      = [[' '] * COLS for _ in range(ROWS)]
@@ -125,6 +128,13 @@ class PremiumClient:
         # Pre-bake the static gradient background surface
         self._bg = pygame.Surface((WIN_W, WIN_H))
         draw_gradient_rect(self._bg, BG_TOP, BG_BOT, (0, 0, WIN_W, WIN_H))
+
+        # Sounds
+        pygame.mixer.init()
+        self.drop_sound = pygame.mixer.Sound("sounds/drop.mp3")
+        self.win_sound  = pygame.mixer.Sound("sounds/win.mp3")
+        self.lose_sound = pygame.mixer.Sound("sounds/lose.mp3")
+        self._endgame_sound_played = False
 
         # Network
         self._connect()
@@ -177,6 +187,9 @@ class PremiumClient:
                 for c in range(COLS):
                     if new_board[r][c] != self.board[r][c] and new_board[r][c] != ' ':
                         self.drop_anim = DropAnimation(c, r, new_board[r][c])
+                    
+                    if new_board[r][c] == self.my_role:
+                        self.drop_sound.play()
 
             self.board         = new_board
             self.turn          = msg["turn"]
@@ -188,6 +201,14 @@ class PremiumClient:
                 self.is_game_over = True
                 self.status_msg   = status_raw
                 self.is_error     = False
+
+                # PLay sound
+                if not self._endgame_sound_played:
+                    if "won" in self.status_msg: 
+                        self.win_sound.play()
+                    elif "lost" in self.status_msg:
+                        self.lose_sound.play()
+                    self._endgame_sound_played = True
             elif self.turn == self.my_role:
                 self.status_msg = "Your turn — click a column!"
                 self.is_error   = False
@@ -234,9 +255,13 @@ class PremiumClient:
             self.screen.blit(r_text, (56, HUD_HEIGHT // 2 - r_text.get_height() // 2))
 
         # Status message centred
-        col  = GREEN if not self.is_error and not self.is_game_over else (255, 120, 120) if self.is_error else (255, 215, 0)
-        surf = self.font_status.render(self.status_msg, True, col)
-        self.screen.blit(surf, surf.get_rect(center=(WIN_W // 2, HUD_HEIGHT // 2)))
+        if not self.is_game_over:
+            if self.is_error:
+                col = RED_TEXT
+            else:
+                col = BLUE_TEXT
+            surf = self.font_status.render(self.status_msg, True, col)
+            self.screen.blit(surf, surf.get_rect(center=(WIN_W // 2, HUD_HEIGHT // 2)))
 
     def _draw_board(self):
         """Draw the board frame and all static (non-animated) cells."""
@@ -290,6 +315,25 @@ class PremiumClient:
         base, glow = self._disc_color(anim.player)
         draw_glowing_circle(self.screen, base, glow, (int(cx), int(cy)), RADIUS, RADIUS + 8)
 
+    def _draw_game_over_overlay(self):
+        overlay = pygame.Surface((WIN_W, WIN_H), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 180))
+        self.screen.blit(overlay, (0, 0))
+
+        # Game over text
+        if "won" in self.status_msg:
+            text = self.font_big.render(self.status_msg, True, GREEN_TEXT)
+        elif "lost" in self.status_msg:
+            text = self.font_big.render(self.status_msg, True, RED_TEXT)
+        else:
+            text = self.font_big.render("Game Over", True, BLUE_TEXT)
+
+        self.screen.blit(text, text.get_rect(center=(WIN_W // 2, WIN_H // 2)))
+
+        # Restart / exit hint
+        sub = self.font_status.render("Close window to exit", True, (200, 200, 200))
+        self.screen.blit(sub, sub.get_rect(center=(WIN_W // 2, WIN_H // 2 + 40)))
+
     # ── Main Loop ─────────────────────────────────────────────────────────
 
     def run(self):
@@ -329,6 +373,8 @@ class PremiumClient:
             self._draw_hud()
             self._draw_board()
             self._draw_drop_animation()
+            if self.is_game_over:
+                self._draw_game_over_overlay()
             pygame.display.flip()
 
 

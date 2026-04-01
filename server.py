@@ -150,26 +150,36 @@ def game_session(conn_x, addr_x, conn_o, addr_o):
             # Update authoritative state
             board[r][c] = turn
             winner = check_winner(board)
-            status = "ongoing"
+            status_x = "ongoing"
+            status_o = "ongoing"
 
             if winner:
                 if winner == 'Draw':
-                    status = "Draw!"
+                    status_x = "It's a Draw!"
+                    status_o = "It's a Draw!"
                 else:
-                    colour = "Red" if winner == 'X' else "Yellow"
-                    status = f"Player {colour} wins!"
-                print(f"[{ts()}] [LOGIC] Placed {turn} at (row={r}, col={c}) — result: {status}", flush=True)
+                    if winner == 'X':
+                        status_x = "Congratulations, you won!"
+                        status_o = "You lost! Better luck next time."
+                        stat = "Player X won"
+                    else:
+                        status_o = "Congratulations, you won!"
+                        status_x = "You lost! Better luck next time."
+                        stat = "Player O won"
+                    
+                print(f"[{ts()}] [LOGIC] Placed {turn} at (row={r}, col={c}) — result: {stat}", flush=True)
             else:
                 print(f"[{ts()}] [LOGIC] Placed {turn} at (row={r}, col={c}) — win check: ongoing", flush=True)
                 turn = 'O' if turn == 'X' else 'X'
 
             # Broadcast updated state to both clients
-            update_msg = json.dumps({"type": "UPDATE", "board": board, "turn": turn, "status": status}) + '\n'
-            conn_x.sendall(update_msg.encode('utf-8'))
-            conn_o.sendall(update_msg.encode('utf-8'))
+            update_msg_x = json.dumps({"type": "UPDATE", "board": board, "turn": turn, "status": status_x}) + '\n'
+            update_msg_o = json.dumps({"type": "UPDATE", "board": board, "turn": turn, "status": status_o}) + '\n'
+            conn_x.sendall(update_msg_x.encode('utf-8'))
+            conn_o.sendall(update_msg_o.encode('utf-8'))
 
             if winner:
-                print(f"[{ts()}] [PROTOCOL] Final UPDATE broadcast — status={status}", flush=True)
+                print(f"[{ts()}] [PROTOCOL] Final UPDATE broadcast — status={stat}", flush=True)
             else:
                 print(f"[{ts()}] [PROTOCOL] UPDATE broadcast — turn={turn}, status=ongoing", flush=True)
 
