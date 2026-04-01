@@ -280,8 +280,9 @@ class TestServerIntegration(unittest.TestCase):
             ux_final = cx.recv_msg()
             uo_final = co.recv_msg()
 
-            self.assertIn('wins', ux_final['status'])
-            self.assertIn('Red',  ux_final['status'])
+            # Server sends personalized messages: winner gets 'won', loser gets 'lost'
+            self.assertIn('won',  ux_final['status'])   # X sees win message
+            self.assertIn('lost', uo_final['status'])   # O sees loss message
         finally:
             cx.close(); co.close()
 
@@ -293,10 +294,11 @@ class TestServerIntegration(unittest.TestCase):
             moves = [(cx, 0), (co, 1), (cx, 0), (co, 1), (cx, 0), (co, 1)]
             play_moves(cx, co, moves)
             cx.move(0)
-            u = cx.recv_msg(); co.recv_msg()
+            ux_final = cx.recv_msg()
+            uo_final = co.recv_msg()
 
-            self.assertIn('wins', u['status'])
-            self.assertIn('Red',  u['status'])
+            self.assertIn('won',  ux_final['status'])   # X sees win message
+            self.assertIn('lost', uo_final['status'])   # O sees loss message
         finally:
             cx.close(); co.close()
 
@@ -315,10 +317,11 @@ class TestServerIntegration(unittest.TestCase):
             ]
             play_moves(cx, co, setup)
             cx.move(3)              # X(2,3) → diagonal win ↘
-            u = cx.recv_msg(); co.recv_msg()
+            ux_final = cx.recv_msg()
+            uo_final = co.recv_msg()
 
-            self.assertIn('wins', u['status'])
-            self.assertIn('Red',  u['status'])
+            self.assertIn('won',  ux_final['status'])   # X sees win message
+            self.assertIn('lost', uo_final['status'])   # O sees loss message
         finally:
             cx.close(); co.close()
 
@@ -332,17 +335,18 @@ class TestServerIntegration(unittest.TestCase):
             cx.move(5)    # X filler so it's O's turn
             cx.recv_msg(); co.recv_msg()
             co.move(0)    # O wins vertically in col 0
-            u = cx.recv_msg(); co.recv_msg()
+            ux_final = cx.recv_msg()
+            uo_final = co.recv_msg()
 
-            self.assertIn('wins', u['status'])
-            self.assertIn('Yellow', u['status'])
+            self.assertIn('lost', ux_final['status'])   # X sees loss message
+            self.assertIn('won',  uo_final['status'])   # O sees win message
         finally:
             cx.close(); co.close()
 
     # ── 6. Game-over state ────────────────────────────────────────────────────
 
-    def test_16_both_clients_see_same_final_status(self):
-        """Both clients must receive identical status and board on game over."""
+    def test_16_both_clients_see_same_final_board(self):
+        """Both clients must receive identical board on game over (statuses differ by design)."""
         cx, co, wx, wo, ux, uo = make_session()
         try:
             moves = [(cx, 0), (co, 6), (cx, 1), (co, 6), (cx, 2), (co, 6)]
@@ -351,8 +355,10 @@ class TestServerIntegration(unittest.TestCase):
             ux_final = cx.recv_msg()
             uo_final = co.recv_msg()
 
-            self.assertEqual(ux_final['status'], uo_final['status'])
-            self.assertEqual(ux_final['board'],  uo_final['board'])
+            # Boards must be identical; statuses are intentionally personalized
+            self.assertEqual(ux_final['board'], uo_final['board'])
+            self.assertIn('won',  ux_final['status'])   # winner gets 'won'
+            self.assertIn('lost', uo_final['status'])   # loser gets 'lost'
         finally:
             cx.close(); co.close()
 
