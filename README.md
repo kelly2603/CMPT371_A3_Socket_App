@@ -77,62 +77,89 @@ git clone https://github.com/kelly2603/CMPT371_A3_Socket_App.git
 cd CMPT371_A3_Socket_App
 ```
 
-### 2 — Create and activate a virtual environment
+---
+
+### 🍎 macOS Instructions
+
+#### Step 1 — Create and activate a virtual environment
 
 ```bash
 python3 -m venv venv
-```
-
-**macOS / Linux:**
-```bash
 source venv/bin/activate
 ```
 
-**Windows:**
-```bash
-venv\Scripts\activate
-```
-
-### 3 — Install dependencies
+#### Step 2 — Install dependencies
 
 ```bash
-python -m pip install -r requirements.txt
+pip install -r requirements.txt
 ```
 
-> **Note (Windows):** Use `python -m pip` instead of `pip` directly. On some Windows setups, `pip` installs packages into the system Python even when a venv is active, which causes `ModuleNotFoundError` when you run the game.
+#### Step 3 — Launch the game
 
-### 4 — Launch the game
-
-#### Option A — One-click launcher (recommended)
+**Option A — One-click launcher (recommended):**
 
 ```bash
 python launcher.py
 ```
 
-A window appears with the launcher controls and a live **SERVER LOG** panel at the bottom that streams all server activity in real time (connections, matchmaking, moves, and game results).
+A window appears with **Launch Game**, **Re-Launch**, and **Stop All** buttons. Click **Launch Game** — it automatically starts the server and opens two game windows side by side.
 
-- **Launch Game** — starts the server and opens two game windows side by side.
-- **Re-Launch** — kills any running processes and starts a fresh game.
-- **Stop All** — terminates all spawned processes cleanly.
+**Option B — Manual launch (three separate terminals):**
 
-#### Option B — Manual launch (three separate terminals)
-
-**Terminal 1 — Start the server:**
 ```bash
+# Terminal 1 — server
+python server.py
+
+# Terminal 2 — Player Red
+python gui_client.py
+
+# Terminal 3 — Player Yellow
+python gui_client.py
+```
+
+---
+
+### 🪟 Windows Instructions
+
+> **Note:** The one-click launcher does not work reliably on Windows. Please use the manual launch method below. No virtual environment is required.
+
+#### Step 1 — Install Python
+
+Download from [python.org](https://python.org) (3.9+ recommended).  
+✅ Make sure to check **"Add Python to PATH"** during installation.
+
+#### Step 2 — Install dependencies
+
+Open **Command Prompt** or **PowerShell** and run:
+
+```cmd
+pip install pygame-ce
+```
+
+#### Step 3 — Manual launch (three separate terminals)
+
+Open **three separate Command Prompt / PowerShell windows**, navigate to the project folder in each, and run:
+
+```cmd
+# Terminal 1 — server
 python server.py
 ```
 
-**Terminal 2 — Player Red's client:**
-```bash
+```cmd
+# Terminal 2 — Player Red
 python gui_client.py
 ```
 
-**Terminal 3 — Player Yellow's client:**
-```bash
+```cmd
+# Terminal 3 — Player Yellow
 python gui_client.py
 ```
 
-#### Option C — Terminal-only (no GUI required)
+> **Tip:** Make sure the server is running before launching the clients. Wait for the line `[TCP] Server bound to 127.0.0.1:5050` to appear before opening the client windows.
+
+---
+
+### Terminal-only mode (no GUI, any OS)
 
 ```bash
 # Terminal 1
