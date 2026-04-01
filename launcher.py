@@ -46,18 +46,30 @@ def launch():
         try: p.terminate()
         except: pass
     processes.clear()
+    # Also kill any leftover server.py from a previous launch
+    subprocess.Popen(['pkill', '-f', 'server.py'],
+                     stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    time.sleep(0.5)
 
     try:
-        # Spawn the server process (hidden terminal, output discarded)
-        server = subprocess.Popen(
-            [PYTHON, os.path.join(BASE_DIR, "server.py")],
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
-        )
-        processes.append(server)
+        # On macOS: open the server in a visible Terminal window so logs are shown
+        if sys.platform == 'darwin':
+            script = (
+                f'tell application "Terminal" to do script '
+                f'"cd {BASE_DIR} && {PYTHON} server.py"'
+            )
+            subprocess.Popen(['osascript', '-e', script])
+        else:
+            # Other platforms: silent background process
+            server = subprocess.Popen(
+                [PYTHON, os.path.join(BASE_DIR, 'server.py')],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL
+            )
+            processes.append(server)
 
         # Give the server enough time to bind its socket before clients connect
-        time.sleep(1.2)
+        time.sleep(1.5)
 
         # Spawn two separate GUI client processes
         for _ in range(2):
