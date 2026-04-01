@@ -41,7 +41,7 @@ A real-time, two-player Connect-Four game built entirely on Python's **TCP Socke
 | Client → Server | `CONNECT` | Initial handshake |
 | Client → Server | `MOVE` | `{ "col": <int> }` |
 | Server → Client | `WELCOME` | `{ "payload": "Player X\|O" }` |
-| Server → Client | `UPDATE` | `{ "board": [[...]], "turn": "X\|O", "status": "ongoing\|..." }` |
+| Server → Client | `UPDATE` | `{ "board": [[...]], "turn": "X\|O", "status": "ongoing\|Congratulations, you won!\|You lost!\|It's a Draw!" }` — status is personalized per client |
 
 ---
 
@@ -50,12 +50,14 @@ A real-time, two-player Connect-Four game built entirely on Python's **TCP Socke
 | File | Role |
 |---|---|
 | `server.py` | Authoritative game server — matchmaking, board logic, win detection, timestamped protocol logging |
-| `gui_client.py` | Pygame GUI client with drop animations, glow effects, and HUD |
-| `client.py` | Terminal fallback client (CLI, no GUI required) |
-| `launcher.py` | One-click launcher — spawns server + 2 clients; streams live server logs into the launcher window |
+| `gui_client.py` | Pygame GUI client — drop animations, glow effects, sound effects (drop/win/lose), hover preview, and game-over overlay |
+
+| `launcher.py` | One-click launcher (macOS) — spawns server + 2 clients via **Launch Game** and **Stop All** buttons |
 | `test_server.py` | Unit tests for `check_winner` (30 cases across all win directions and draw) |
 | `test_integration.py` | Integration tests — connects real mock clients to a live server (18 protocol tests) |
 | `requirements.txt` | Python runtime dependencies |
+| `fonts/` | Bundled Montserrat font files used by the GUI client |
+| `sounds/` | Sound effect files — `drop.mp3`, `win.mp3`, `lose.mp3` |
 
 ---
 
@@ -94,6 +96,12 @@ source venv/bin/activate
 pip install -r requirements.txt
 ```
 
+Or install the library directly:
+
+```bash
+pip install pygame-ce
+```
+
 #### Step 3 — Launch the game
 
 **Option A — One-click launcher (recommended):**
@@ -102,7 +110,7 @@ pip install -r requirements.txt
 python launcher.py
 ```
 
-A window appears with **Launch Game**, **Re-Launch**, and **Stop All** buttons. Click **Launch Game** — it automatically starts the server and opens two game windows side by side.
+A small window appears with **Launch Game**, **Re-Launch**, and **Stop All** buttons. Click **Launch Game** — it automatically starts the server and opens two game windows.
 
 **Option B — Manual launch (three separate terminals):**
 
@@ -130,7 +138,13 @@ Download from [python.org](https://python.org) (3.9+ recommended).
 
 #### Step 2 — Install dependencies
 
-Open **Command Prompt** or **PowerShell** and run:
+Open **Command Prompt** or **PowerShell** and run one of the following:
+
+```cmd
+pip install -r requirements.txt
+```
+
+Or install the library directly:
 
 ```cmd
 pip install pygame-ce
@@ -158,19 +172,6 @@ python gui_client.py
 > **Tip:** Make sure the server is running before launching the clients. Wait for the line `[TCP] Server bound to 127.0.0.1:5050` to appear before opening the client windows.
 
 ---
-
-### Terminal-only mode (no GUI, any OS)
-
-```bash
-# Terminal 1
-python server.py
-
-# Terminal 2
-python client.py
-
-# Terminal 3
-python client.py
-```
 
 ---
 
