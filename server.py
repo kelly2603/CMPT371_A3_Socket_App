@@ -1,8 +1,5 @@
-"""
-CMPT 371 A3: Multiplayer Connect-Four Server
-Architecture: TCP Sockets with Multithreaded Session Management
-Reference: Socket boilerplate adapted from "TCP Echo Server" tutorial.
-"""
+# CMPT 371 A3 - Connect-Four Server
+# Handles matchmaking, game sessions, and all game logic.
 
 import socket
 import threading
@@ -13,21 +10,19 @@ import datetime
 HOST = '127.0.0.1'
 PORT = 5050
 
-# Matchmaking Queue: stores (conn, addr) tuples until two players are ready.
+# queue to hold connected clients waiting for an opponent
 matchmaking_queue = []
 
 
 def ts():
-    """Return current HH:MM:SS timestamp for log lines."""
+    # timestamp helper for log output
     return datetime.datetime.now().strftime("%H:%M:%S")
 
 
 def check_winner(board):
-    """
-    Basic win and draw validation.
-    Enforces the "Single Source of Truth" rule: the server calculates wins
-    so clients cannot cheat by modifying their local memory.
-    """
+    # checks rows, columns, and diagonals for a 4-in-a-row
+    # also checks if the board is full (draw)
+    # done server-side so clients can't mess with the result
     # Check Rows
     for i in range(6):
         xcount = 0
@@ -91,50 +86,45 @@ def check_winner(board):
 
 
 def game_session(conn_x, addr_x, conn_o, addr_o):
-    """
-    Isolated game loop for two matched players running on a background thread.
-    Guarantees concurrent sessions do not block each other.
-    """
+    # runs in its own thread so multiple games can happen at the same time
     x_str = f"{addr_x[0]}:{addr_x[1]}"
     o_str = f"{addr_o[0]}:{addr_o[1]}"
 
     print(f"[{ts()}] [SESSION] Game session started — Player X: {x_str}  |  Player O: {o_str}", flush=True)
 
-    # Protocol: Assign roles via WELCOME message
+    # send each player their role
     conn_x.sendall((json.dumps({"type": "WELCOME", "payload": "Player X"}) + '\n').encode('utf-8'))
-    print(f"[{ts()}] [PROTOCOL] WELCOME → Player X ({x_str})", flush=True)
+    print(f"[{ts()}] [PROTOCOL] WELCOME -> Player X ({x_str})", flush=True)
     conn_o.sendall((json.dumps({"type": "WELCOME", "payload": "Player O"}) + '\n').encode('utf-8'))
-    print(f"[{ts()}] [PROTOCOL] WELCOME → Player O ({o_str})", flush=True)
+    print(f"[{ts()}] [PROTOCOL] WELCOME -> Player O ({o_str})", flush=True)
 
-    # Initialize authoritative game state
+    # set up the board and send the initial state
     board = [[' '] * 7 for _ in range(6)]
     turn = 'X'
 
-    # Broadcast initial empty board to both players
     update_msg = json.dumps({"type": "UPDATE", "board": board, "turn": turn, "status": "ongoing"}) + '\n'
     conn_x.sendall(update_msg.encode('utf-8'))
     conn_o.sendall(update_msg.encode('utf-8'))
-    print(f"[{ts()}] [PROTOCOL] Initial UPDATE broadcast — turn=X, status=ongoing", flush=True)
+    print(f"[{ts()}] [PROTOCOL] initial UPDATE sent, turn=X", flush=True)
 
     sockets = {'X': conn_x, 'O': conn_o}
-    addrs   = {'X': x_str,  'O': o_str}
+    addrs = {'X': x_str, 'O': o_str}
 
     while True:
         active_socket = sockets[turn]
 
-        # Block and wait for the active player's move
         data = active_socket.recv(1024).decode('utf-8')
         if not data:
             break
 
-        # Process first complete message in the stream
+        # take only the first JSON line in case multiple arrived together
         clean_data = data.strip().split('\n')[0]
         msg = json.loads(clean_data)
 
         if msg["type"] == "MOVE":
             c = msg["col"]
 
-            # Find the lowest empty row in the chosen column
+            # gravity: find the bottom-most open row
             r = None
             for i in range(5, -1, -1):
                 if board[i][c] == ' ':
@@ -202,7 +192,6 @@ def game_session(conn_x, addr_x, conn_o, addr_o):
 
 
 def start_server():
-    """Main server loop: binds the socket and handles matchmaking."""
     server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     server.bind((HOST, PORT))

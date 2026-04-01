@@ -1,14 +1,5 @@
-"""
-CMPT 371 A3: Multiplayer Connect-Four Client (Premium GUI)
-Architecture: JSON over TCP Protocol with animated Pygame rendering.
-
-Visual features:
-  - Smooth drop animation for placed pieces
-  - Glowing hover preview in whichever column the mouse is over
-  - Gradient dark background
-  - Pulsing win-highlight on the final pieces
-  - Clean HUD showing role, turn, and network status
-"""
+# CMPT 371 A3 - Connect-Four GUI Client
+# pygame-ce frontend that connects to the game server over TCP
 
 import socket
 import json
@@ -23,33 +14,33 @@ import pygame
 HOST = '127.0.0.1'
 PORT = 5050
 
-# ── Layout ────────────────────────────────────────────────────────────────────
-COLS, ROWS   = 7, 6
-SQ           = 90          # cell size in pixels
-RADIUS       = SQ // 2 - 6
-HUD_HEIGHT   = 80          # header bar
-WIN_W        = COLS * SQ   # 630
-WIN_H        = ROWS * SQ + HUD_HEIGHT  # 620
+# window/grid dimensions
+COLS, ROWS = 7, 6
+SQ = 90          # cell size in pixels
+RADIUS = SQ // 2 - 6
+HUD_HEIGHT = 80  # header bar
+WIN_W = COLS * SQ   # 630
+WIN_H = ROWS * SQ + HUD_HEIGHT  # 620
 
-# ── Colour Palette ────────────────────────────────────────────────────────────
-BG_TOP       = (10,  12,  30)
-BG_BOT       = (20,  25,  55)
-BOARD_COL    = (18,  34,  90)
-BOARD_EDGE   = (30,  55, 150)
-EMPTY_COL    = (8,   14,  40)
-EMPTY_EDGE   = (25,  45, 120)
+# colours
+BG_TOP = (10, 12, 30)
+BG_BOT = (20, 25, 55)
+BOARD_COL = (18, 34, 90)
+BOARD_EDGE = (30, 55, 150)
+EMPTY_COL = (8, 14, 40)
+EMPTY_EDGE = (25, 45, 120)
 
-RED_BASE     = (230, 55,  60)
-RED_GLOW     = (255, 100, 100)
-YLW_BASE     = (240, 195,  0)
-YLW_GLOW     = (255, 230, 100)
-WHITE        = (245, 245, 255)
-GREY         = (130, 140, 170)
-GREEN_TEXT   = (60,  210, 130)
-YELLOW_TEXT  = (255, 215, 0)
-RED_TEXT     = (255, 120, 120)
-BLUE_TEXT    = (120, 140, 255)
-SHADOW       = (0,   0,   0, 80)
+RED_BASE = (230, 55, 60)
+RED_GLOW = (255, 100, 100)
+YLW_BASE = (240, 195, 0)
+YLW_GLOW = (255, 230, 100)
+WHITE = (245, 245, 255)
+GREY = (130, 140, 170)
+GREEN_TEXT = (60, 210, 130)
+YELLOW_TEXT = (255, 215, 0)
+RED_TEXT = (255, 120, 120)
+BLUE_TEXT = (120, 140, 255)
+SHADOW = (0, 0, 0, 80)
 
 
 def lerp(a, b, t):
@@ -111,35 +102,35 @@ class PremiumClient:
         self.font_status = pygame.font.Font("fonts/Montserrat-SemiBold.ttf", 18)
         self.font_big    = pygame.font.Font("fonts/Montserrat-SemiBold.ttf", 32)
 
-        # Game state (set by server messages)
-        self.board      = [[' '] * COLS for _ in range(ROWS)]
-        self.my_role    = None   # 'X' or 'O'
-        self.turn       = None
+        # game state - gets updated when server sends messages
+        self.board = [[' '] * COLS for _ in range(ROWS)]
+        self.my_role = None   # 'X' or 'O'
+        self.turn = None
         self.status_msg = "Connecting to server..."
-        self.is_error   = False
+        self.is_error = False
         self.is_game_over = False
 
-        # Animation state
-        self.drop_anim    = None    # active DropAnimation, or None when idle
-        self.hover_col    = None    # column index under the mouse cursor
-        self.win_pulse    = 0.0     # oscillating value for the win-glow effect
+        # animation state
+        self.drop_anim = None    # active DropAnimation, or None when idle
+        self.hover_col = None    # column the mouse is over
+        self.win_pulse = 0.0     # used for the pulsing win effect
         self._move_pending = False  # True while waiting for server to ack our move
 
         # Pre-bake the static gradient background surface
         self._bg = pygame.Surface((WIN_W, WIN_H))
         draw_gradient_rect(self._bg, BG_TOP, BG_BOT, (0, 0, WIN_W, WIN_H))
 
-        # Sounds
+        # sounds
         pygame.mixer.init()
         self.drop_sound = pygame.mixer.Sound("sounds/drop.mp3")
-        self.win_sound  = pygame.mixer.Sound("sounds/win.mp3")
+        self.win_sound = pygame.mixer.Sound("sounds/win.mp3")
         self.lose_sound = pygame.mixer.Sound("sounds/lose.mp3")
         self._endgame_sound_played = False
 
         # Network
         self._connect()
 
-    # ── Networking ──────────────────────────────────────────────────────────
+    # --- networking ---
 
     def _connect(self):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -230,7 +221,7 @@ class PremiumClient:
         except Exception as e:
             self.status_msg = f"Send error: {e}"
 
-    # ── Drawing helpers ────────────────────────────────────────────────────
+    # --- drawing ---
 
     def _disc_color(self, player):
         return (RED_BASE, RED_GLOW) if player == 'X' else (YLW_BASE, YLW_GLOW)
@@ -334,13 +325,13 @@ class PremiumClient:
         sub = self.font_status.render("Close window to exit", True, (200, 200, 200))
         self.screen.blit(sub, sub.get_rect(center=(WIN_W // 2, WIN_H // 2 + 40)))
 
-    # ── Main Loop ─────────────────────────────────────────────────────────
+    # --- main loop ---
 
     def run(self):
         while True:
             dt = self.clock.tick(60)
 
-            # ── Events ──
+            # events
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
                     try: self.sock.close()
@@ -358,7 +349,7 @@ class PremiumClient:
                         if 0 <= col < COLS:
                             self._send_move(col)
 
-            # ── Update ──
+            # update
             if self.drop_anim and not self.drop_anim.done:
                 self.drop_anim.update()
             # Clear finished animation so it no longer blocks future moves
@@ -368,7 +359,7 @@ class PremiumClient:
             if self.is_game_over:
                 self.win_pulse += 0.06
 
-            # ── Render ──
+            # render
             self.screen.blit(self._bg, (0, 0))
             self._draw_hud()
             self._draw_board()
