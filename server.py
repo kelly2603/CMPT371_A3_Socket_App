@@ -11,7 +11,7 @@ HOST = '127.0.0.1'
 PORT = 5050
 
 # queue to hold connected clients waiting for an opponent
-matchmaking_queue = []
+lobby = []
 
 
 def ts():
@@ -85,41 +85,41 @@ def check_winner(board):
     return None
 
 
-def game_session(conn_x, addr_x, conn_o, addr_o):
+def run_game(sock_red, addr_red, sock_yel, addr_yel):
     # runs in its own thread so multiple games can happen at the same time
-    x_str = f"{addr_x[0]}:{addr_x[1]}"
-    o_str = f"{addr_o[0]}:{addr_o[1]}"
+    red_str = f"{addr_red[0]}:{addr_red[1]}"
+    yel_str = f"{addr_yel[0]}:{addr_yel[1]}"
 
-    print(f"[{ts()}] [SESSION] Game session started — Player X: {x_str}  |  Player O: {o_str}", flush=True)
+    print(f"[{ts()}] [SESSION] Game session started — Player X: {red_str}  |  Player O: {yel_str}", flush=True)
 
     # send each player their role
-    conn_x.sendall((json.dumps({"type": "WELCOME", "payload": "Player X"}) + '\n').encode('utf-8'))
-    print(f"[{ts()}] [PROTOCOL] WELCOME -> Player X ({x_str})", flush=True)
-    conn_o.sendall((json.dumps({"type": "WELCOME", "payload": "Player O"}) + '\n').encode('utf-8'))
-    print(f"[{ts()}] [PROTOCOL] WELCOME -> Player O ({o_str})", flush=True)
+    sock_red.sendall((json.dumps({"type": "WELCOME", "payload": "Player X"}) + '\n').encode('utf-8'))
+    print(f"[{ts()}] [PROTOCOL] WELCOME -> Player X ({red_str})", flush=True)
+    sock_yel.sendall((json.dumps({"type": "WELCOME", "payload": "Player O"}) + '\n').encode('utf-8'))
+    print(f"[{ts()}] [PROTOCOL] WELCOME -> Player O ({yel_str})", flush=True)
 
     # set up the board and send the initial state
     board = [[' '] * 7 for _ in range(6)]
     turn = 'X'
 
     update_msg = json.dumps({"type": "UPDATE", "board": board, "turn": turn, "status": "ongoing"}) + '\n'
-    conn_x.sendall(update_msg.encode('utf-8'))
-    conn_o.sendall(update_msg.encode('utf-8'))
+    sock_red.sendall(update_msg.encode('utf-8'))
+    sock_yel.sendall(update_msg.encode('utf-8'))
     print(f"[{ts()}] [PROTOCOL] initial UPDATE sent, turn=X", flush=True)
 
-    sockets = {'X': conn_x, 'O': conn_o}
-    addrs = {'X': x_str, 'O': o_str}
+    conns = {'X': sock_red, 'O': sock_yel}
+    addr_map = {'X': red_str, 'O': yel_str}
 
     while True:
-        active_socket = sockets[turn]
+        cur_sock = conns[turn]
 
-        data = active_socket.recv(1024).decode('utf-8')
+        data = cur_sock.recv(1024).decode('utf-8')
         if not data:
             break
 
-        # take only the first JSON line in case multiple arrived together
-        clean_data = data.strip().split('\n')[0]
-        msg = json.loads(clean_data)
+        # TCP can bundle multiple messages; grab just the first one
+        first_line = data.strip().split('\n')[0]
+        msg = json.loads(first_line)
 
         if msg["type"] == "MOVE":
             c = msg["col"]
@@ -135,9 +135,8 @@ def game_session(conn_x, addr_x, conn_o, addr_o):
                 print(f"[{ts()}] [LOGIC] Column {c} is full — move from Player {turn} rejected", flush=True)
                 continue
 
-            print(f"[{ts()}] [RECV] MOVE from Player {turn} ({addrs[turn]}): col={c}", flush=True)
+            print(f"[{ts()}] [RECV] MOVE from Player {turn} ({addr_map[turn]}): col={c}", flush=True)
 
-            # Update authoritative state
             board[r][c] = turn
             winner = check_winner(board)
             status_x = "ongoing"
@@ -165,8 +164,8 @@ def game_session(conn_x, addr_x, conn_o, addr_o):
             # Broadcast updated state to both clients
             update_msg_x = json.dumps({"type": "UPDATE", "board": board, "turn": turn, "status": status_x}) + '\n'
             update_msg_o = json.dumps({"type": "UPDATE", "board": board, "turn": turn, "status": status_o}) + '\n'
-            conn_x.sendall(update_msg_x.encode('utf-8'))
-            conn_o.sendall(update_msg_o.encode('utf-8'))
+            sock_red.sendall(update_msg_x.encode('utf-8'))
+            sock_yel.sendall(update_msg_o.encode('utf-8'))
 
             if winner:
                 print(f"[{ts()}] [PROTOCOL] Final UPDATE broadcast — status={stat}", flush=True)
@@ -174,7 +173,7 @@ def game_session(conn_x, addr_x, conn_o, addr_o):
                 print(f"[{ts()}] [PROTOCOL] UPDATE broadcast — turn={turn}, status=ongoing", flush=True)
 
             # Safety net: drain any extra buffered messages from the player who just moved
-            just_moved = sockets['O' if turn == 'X' else 'X']
+            just_moved = conns['O' if turn == 'X' else 'X']
             just_moved.setblocking(False)
             try:
                 while just_moved.recv(4096):
@@ -187,8 +186,8 @@ def game_session(conn_x, addr_x, conn_o, addr_o):
                 break
 
     print(f"[{ts()}] [SESSION] Session terminated — sockets closed", flush=True)
-    conn_x.close()
-    conn_o.close()
+    sock_red.close()
+    sock_yel.close()
 
 
 def start_server():
@@ -205,14 +204,14 @@ def start_server():
             data = conn.recv(1024).decode('utf-8')
 
             if "CONNECT" in data:
-                matchmaking_queue.append((conn, addr))
-                print(f"[{ts()}] [HANDSHAKE] CONNECT received from {addr[0]}:{addr[1]} — queue size: {len(matchmaking_queue)}", flush=True)
+                lobby.append((conn, addr))
+                print(f"[{ts()}] [HANDSHAKE] CONNECT received from {addr[0]}:{addr[1]} — queue size: {len(lobby)}", flush=True)
 
-                if len(matchmaking_queue) >= 2:
-                    player_x, addr_x = matchmaking_queue.pop(0)
-                    player_o, addr_o = matchmaking_queue.pop(0)
+                if len(lobby) >= 2:
+                    red_sock, addr_red = lobby.pop(0)
+                    yel_sock, addr_yel = lobby.pop(0)
                     print(f"[{ts()}] [MATCH] 2 players queued — spawning GameSession thread", flush=True)
-                    threading.Thread(target=game_session, args=(player_x, addr_x, player_o, addr_o)).start()
+                    threading.Thread(target=run_game, args=(red_sock, addr_red, yel_sock, addr_yel)).start()
 
     except KeyboardInterrupt:
         print(f"[{ts()}] [SHUTDOWN] Server closing...", flush=True)
